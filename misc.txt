@@ -1,0 +1,5 @@
+tiffcrop -z x1,y1,x2,y2 input.tif output.tif
+
+
+
+tiffcrop -z 700,800,2000,1600 0025_3a46f30c-eef7-4e6c-b485-0f54947856bc_003_S4_DL_F_FO_OUT_WH_1_60_F8_ISO100_01_28_2026_GIC.tif macro.tif

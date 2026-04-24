@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diaper Artwork Remover</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #16213e;
+      padding: 14px 24px;
+      border-bottom: 2px solid #0f3460;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #e94560;
+    }
+
+    header p {
+      font-size: 0.78rem;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ---- sidebar ---- */
+    #sidebar {
+      width: 320px;
+      min-width: 280px;
+      background: #16213e;
+      border-right: 1px solid #0f3460;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .section-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #e94560;
+      margin-bottom: 10px;
+    }
+
+    .section-sub {
+      font-size: 0.65rem;
+      color: #555;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .control {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      color: #ccc;
+    }
+
+    .control label span {
+      color: #e94560;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .control input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: #0f3460;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .control input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #e94560;
+      cursor: pointer;
+    }
+
+    .hint {
+      font-size: 0.7rem;
+      color: #555;
+      line-height: 1.3;
+    }
+
+    .mt {
+      margin-top: 10px;
+    }
+
+    /* ---- toggle switch ---- */
+    .toggle-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .toggle {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      min-width: 38px;
+      height: 22px;
+      margin-top: 1px;
+    }
+
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 22px;
+      background: #0f3460;
+      cursor: pointer;
+      transition: background .2s;
+    }
+
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #444;
+      top: 3.5px;
+      left: 3.5px;
+      transition: transform .2s, background .2s;
+    }
+
+    .toggle input:checked+.toggle-track {
+      background: #1a4a80;
+    }
+
+    .toggle input:checked+.toggle-track::after {
+      transform: translateX(16px);
+      background: #e94560;
+    }
+
+    .toggle-info strong {
+      font-size: 0.82rem;
+      color: #ccc;
+    }
+
+    .toggle-info {
+      flex: 1;
+    }
+
+    .toggle-row.dimmed {
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    /* ---- pill button groups ---- */
+    .pill-group {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      border-radius: 20px;
+      border: 1px solid #1a3a5c;
+      background: #0a1628;
+      color: #555;
+      cursor: pointer;
+      transition: all .12s;
+      white-space: nowrap;
+    }
+
+    .pill:hover {
+      border-color: #7ec8e3;
+      color: #7ec8e3;
+    }
+
+    .pill.active {
+      background: #0f3460;
+      color: #e94560;
+      border-color: #e94560;
+    }
+
+    /* ---- strategy badge ---- */
+    #strategy-badge {
+      display: inline-block;
+      background: #0a1628;
+      border: 1px solid #e94560;
+      color: #e94560;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: .05em;
+      padding: 4px 9px;
+      border-radius: 4px;
+      margin-bottom: 14px;
+      line-height: 1.4;
+    }
+
+    /* ---- A4 params box ---- */
+    #a4-controls {
+      background: #0d1a30;
+      border: 1px solid #0f3460;
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    #a4-controls .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    #a4-controls .row-label {
+      font-size: 0.72rem;
+      color: #888;
+      margin-bottom: 4px;
+    }
+
+    /* ---- colour filters ---- */
+    #filter-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .filter-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #0a1628;
+      border: 1px solid #0f3460;
+      border-radius: 6px;
+      padding: 7px 8px;
+    }
+
+    .filt-color {
+      -webkit-appearance: none;
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      border: 2px solid #0f3460;
+      border-radius: 5px;
+      cursor: pointer;
+      padding: 2px;
+      background: none;
+    }
+
+    .filt-color::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+
+    .filt-color::-webkit-color-swatch {
+      border: none;
+      border-radius: 3px;
+    }
+
+    .filt-mid {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .filt-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .filt-color-label {
+      font-size: 0.72rem;
+      color: #aaa;
+      font-family: monospace;
+    }
+
+    .filt-opacity-val {
+      font-size: 0.7rem;
+      color: #e94560;
+    }
+
+    .filt-opacity {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: #0f3460;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .filt-opacity::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #e94560;
+      cursor: pointer;
+    }
+
+    .filt-remove {
+      background: none;
+      border: none;
+      color: #444;
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 3px;
+      transition: color .12s;
+      flex-shrink: 0;
+    }
+
+    .filt-remove:hover {
+      color: #e94560;
+    }
+
+    .filt-handle {
+      color: #333;
+      font-size: 0.9rem;
+      cursor: grab;
+      padding: 0 2px;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .filter-row.dragging {
+      opacity: 0.4;
+    }
+
+    .filter-row.drag-over {
+      border-color: #e94560;
+    }
+
+    #btn-add-filter {
+      width: 100%;
+      margin-top: 8px;
+      padding: 7px;
+      background: #0a1628;
+      border: 1px dashed #1a3a5c;
+      border-radius: 6px;
+      color: #555;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: border-color .12s, color .12s;
+      text-align: center;
+    }
+
+    #btn-add-filter:hover {
+      border-color: #7ec8e3;
+      color: #7ec8e3;
+    }
+
+    .filter-empty {
+      font-size: 0.72rem;
+      color: #444;
+      text-align: center;
+      padding: 8px 0;
+    }
+
+    /* ---- action buttons ---- */
+    #btn-preview,
+    #btn-download {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+
+    #btn-preview {
+      background: #e94560;
+      color: #fff;
+    }
+
+    #btn-preview:hover {
+      background: #c73050;
+    }
+
+    #btn-download {
+      background: #0f3460;
+      color: #7ec8e3;
+      border: 1px solid #7ec8e3;
+      margin-top: 6px;
+    }
+
+    #btn-download:hover {
+      background: #1a4a80;
+    }
+
+    /* Fixed preview button overlay (bottom-right) */
+    #btn-preview {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      width: 160px;
+      z-index: 9999;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    /* Spinner inside the floating button should be white-on-red */
+    #btn-preview .spinner {
+      border: 2px solid rgba(255, 255, 255, 0.45);
+      border-top-color: #ffffff;
+      width: 12px;
+      height: 12px;
+      display: none;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    #status {
+      font-size: 0.75rem;
+      color: #888;
+      text-align: center;
+      min-height: 1.2em;
+      margin-top: 6px;
+    }
+
+    /* ---- canvas area ---- */
+    #canvas-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #top-bar {
+      display: flex;
+      align-items: center;
+      background: #0f1b35;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    .tab {
+      padding: 9px 18px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      color: #888;
+      border-bottom: 2px solid transparent;
+      transition: color .15s;
+      user-select: none;
+    }
+
+    .tab.active {
+      color: #e94560;
+      border-bottom-color: #e94560;
+    }
+
+    #zoom-controls {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 12px;
+    }
+
+    #zoom-controls button {
+      background: #0f3460;
+      color: #7ec8e3;
+      border: 1px solid #7ec8e3;
+      border-radius: 4px;
+      width: 26px;
+      height: 26px;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #zoom-controls button:hover {
+      background: #1a4a80;
+    }
+
+    #zoom-label {
+      font-size: 0.75rem;
+      color: #888;
+      min-width: 36px;
+      text-align: center;
+    }
+
+    #channel-bar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px;
+      background: #0d1730;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    #channel-bar span {
+      font-size: 0.7rem;
+      color: #666;
+      margin-right: 4px;
+    }
+
+    .ch-btn {
+      padding: 3px 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      border-radius: 4px;
+      border: 1px solid #0f3460;
+      background: #0a1628;
+      color: #666;
+      cursor: pointer;
+      transition: all .12s;
+    }
+
+    .ch-btn:hover {
+      border-color: #7ec8e3;
+      color: #7ec8e3;
+    }
+
+    .ch-btn.active {
+      background: #0f3460;
+      color: #e94560;
+      border-color: #e94560;
+    }
+
+    #panels {
+      flex: 1;
+      overflow: hidden;
+      background: #0a0e1a;
+    }
+
+    .panel {
+      display: none;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      padding: 12px;
+      align-items: flex-start;
+      justify-content: center;
+    }
+
+    .panel.active {
+      display: flex;
+    }
+
+    .panel img {
+      object-fit: contain;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      background: #111;
+      transition: width .12s, height .12s;
+    }
+
+    #placeholder {
+      color: #444;
+      font-size: 0.9rem;
+      margin: auto;
+      text-align: center;
+      line-height: 2;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid #444;
+      border-top-color: #e94560;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div>
+      <h1>Diaper Artwork Remover</h1>
+      <p>Detect coloured artwork via HSV saturation · remove colour · preserve wrinkles &amp; shadows</p>
+    </div>
+  </header>
+
+  <main>
+    <div id="sidebar">
+
+      <!-- ── Colour Detection Mask ── -->
+      <div>
+        <div class="section-title">Colour Detection Mask</div>
+        <div class="control">
+          <label>Saturation threshold <span id="v-sat">0.08</span></label>
+          <input type="range" id="sat_threshold" min="0.01" max="0.60" step="0.01" value="0.08">
+          <div class="hint">HSV saturation above this → artwork pixel. Lower = more aggressive.</div>
+        </div>
+        <div class="control mt">
+          <label>Min brightness (V) <span id="v-vmin">0.00</span></label>
+          <input type="range" id="val_min" min="0.00" max="0.50" step="0.01" value="0.00">
+          <div class="hint">Pixels darker than this are always kept (shadows).</div>
+        </div>
+        <div class="control mt">
+          <label>Max brightness (V) <span id="v-vmax">1.00</span></label>
+          <input type="range" id="val_max" min="0.50" max="1.00" step="0.01" value="1.00">
+        </div>
+      </div>
+
+      <!-- ── Mask Refinement ── -->
+      <div>
+        <div class="section-title">Mask Refinement</div>
+        <div class="control">
+          <label>Blur / feather <span id="v-blur">0.0</span></label>
+          <input type="range" id="blur_sigma" min="0" max="8" step="0.5" value="0.0">
+        </div>
+        <div class="control mt">
+          <label>Erode <span id="v-erode">0</span></label>
+          <input type="range" id="erode_iter" min="0" max="10" step="1" value="0">
+          <div class="hint">Shrink mask to remove isolated noise pixels.</div>
+        </div>
+        <div class="control mt">
+          <label>Dilate <span id="v-dilate">0</span></label>
+          <input type="range" id="dilate_iter" min="0" max="20" step="1" value="0">
+          <div class="hint">Expand mask to cover colour bleed and anti-aliased edges.</div>
+        </div>
+      </div>
+
+      <!-- ── Removal Strategy ── -->
+      <div>
+        <div class="section-title">Removal Strategy</div>
+        <div id="strategy-badge">A1 — LAB Neutral</div>
+
+        <!-- A2 -->
+        <div class="toggle-row" id="row-a2">
+          <label class="toggle"><input type="checkbox" id="use_a2"><span class="toggle-track"></span></label>
+          <div class="toggle-info">
+            <strong>A2 — Reference Tone</strong>
+            <div class="hint" style="margin-top:3px">Match surrounding diaper hue/warmth instead of pure grey.</div>
+          </div>
+        </div>
+
+        <!-- A3 -->
+        <div class="toggle-row mt" id="row-a3">
+          <label class="toggle"><input type="checkbox" id="use_a3"><span class="toggle-track"></span></label>
+          <div class="toggle-info">
+            <strong>A3 — Frequency Separation</strong>
+            <div class="hint" style="margin-top:3px">Replace colour layer only; texture layer kept intact.</div>
+          </div>
+        </div>
+        <div id="freq-controls" style="display:none">
+          <div class="control mt">
+            <label>Separation sigma <span id="v-freqsig">20</span></label>
+            <input type="range" id="freq_sigma" min="2" max="80" step="1" value="20">
+            <div class="hint">Blur radius for colour/texture split (full-res pixels).</div>
+          </div>
+        </div>
+
+        <!-- A4 -->
+        <div class="toggle-row mt" id="row-a4">
+          <label class="toggle"><input type="checkbox" id="use_a4"><span class="toggle-track"></span></label>
+          <div class="toggle-info">
+            <strong>A4 — Edge Transfer</strong>
+            <div class="hint" style="margin-top:3px">Per island: fit masked pixels into the colour distribution of the
+              surrounding border pixels. Overrides A1–A3.</div>
+          </div>
+        </div>
+
+        <!-- A4 parameters -->
+        <div id="a4-controls" style="display:none">
+
+          <div class="control-row">
+            <div class="row-label">Transform mode</div>
+            <div class="pill-group" id="et-mode-group">
+              <button class="pill" data-val="mean">Mean shift</button>
+              <button class="pill" data-val="mean_std">Mean + Std</button>
+              <button class="pill active" data-val="covariance">Full covariance</button>
+            </div>
+            <div class="hint mt" id="et-mode-hint">Matches mean and per-channel standard deviation to the border pixels.
+            </div>
+          </div>
+
+          <div class="control-row">
+            <div class="row-label">Colour space</div>
+            <div class="pill-group" id="et-cs-group">
+              <button class="pill" data-val="rgb">RGB</button>
+              <button class="pill active" data-val="lab">LAB</button>
+            </div>
+            <div class="hint mt">LAB is perceptually uniform — usually gives better results.</div>
+          </div>
+
+          <div class="control">
+            <label>Border width (px) <span id="v-et-bw">10</span></label>
+            <input type="range" id="et_border_width" min="1" max="40" step="1" value="10">
+            <div class="hint">How far outside each island to sample reference pixels.</div>
+          </div>
+
+          <div class="control">
+            <label>Blend strength <span id="v-et-bs">1.00</span></label>
+            <input type="range" id="et_blend_strength" min="0" max="1" step="0.05" value="1.0">
+            <div class="hint">0 = no change · 1 = fully transferred.</div>
+          </div>
+
+          <div class="toggle-row">
+            <label class="toggle"><input type="checkbox" id="et_edge_blend" checked><span
+                class="toggle-track"></span></label>
+            <div class="toggle-info">
+              <strong style="font-size:0.8rem">Edge feathering</strong>
+              <div class="hint" style="margin-top:2px">All island pixels are corrected uniformly; boundary pixels are
+                fully transformed.</div>
+            </div>
+          </div>
+
+          <div id="et-edge-radius-row">
+            <div class="control">
+              <label>Feather radius (px) <span id="v-et-er">8</span></label>
+              <input type="range" id="et_edge_blend_radius" min="1" max="40" step="1" value="8">
+              <div class="hint">Distance from boundary over which the blend tapers.</div>
+            </div>
+          </div>
+
+          <div class="control">
+            <label>Min border pixels <span id="v-et-mbp">5</span></label>
+            <input type="range" id="et_min_border_px" min="5" max="200" step="5" value="5">
+            <div class="hint">Islands with fewer surrounding pixels are skipped.</div>
+          </div>
+
+          <div class="control">
+            <label>Min island pixels <span id="v-et-mip">1</span></label>
+            <input type="range" id="et_min_island_px" min="1" max="100" step="1" value="1">
+            <div class="hint">Islands smaller than this are skipped.</div>
+          </div>
+
+        </div><!-- /a4-controls -->
+
+        <!-- Chroma strength (A1–A3 only) -->
+        <div id="chroma-strength-row" class="mt">
+          <div class="control">
+            <label>Chroma strength <span id="v-strength">1.00</span></label>
+            <input type="range" id="removal_strength" min="0" max="1" step="0.05" value="1.0">
+            <div class="hint">How much colour is removed. 1.0 = fully neutralised.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Colour Filters ── -->
+      <div>
+        <div class="section-title">Colour Filters <span class="section-sub">applied over mask in order</span></div>
+        <div id="filter-list"></div>
+        <div id="filter-empty" class="filter-empty">No filters — add one below.</div>
+        <button id="btn-add-filter">＋ Add colour filter</button>
+      </div>
+
+      <!-- ── Render resolution + Actions ── -->
+      <div>
+        <div class="section-title">Render</div>
+        <div class="control">
+          <label>Render resolution % <span id="v-render-pct">100</span></label>
+          <input type="range" id="render_pct" min="10" max="200" step="5" value="100">
+          <div class="hint">Preview rendering scale (percent).</div>
+        </div>
+      </div>
+
+      <div>
+        <button id="btn-download">Download full-res TIF</button>
+        <div id="status"></div>
+      </div>
+
+    </div><!-- /sidebar -->
+
+    <!-- ====== Canvas area ====== -->
+    <div id="canvas-area">
+      <div id="top-bar">
+        <div class="tab active" data-panel="original">Original</div>
+        <div class="tab" data-panel="mask">Mask overlay</div>
+        <div class="tab" data-panel="result">Result</div>
+        <div id="zoom-controls">
+          <button id="btn-zoom-out">−</button>
+          <span id="zoom-label">100%</span>
+          <button id="btn-zoom-in">+</button>
+          <button id="btn-zoom-fit">⊡</button>
+        </div>
+      </div>
+
+      <div id="channel-bar">
+        <span>Channel:</span>
+        <button class="ch-btn active" data-ch="rgb">RGB</button>
+        <button class="ch-btn" data-ch="r">R</button>
+        <button class="ch-btn" data-ch="g">G</button>
+        <button class="ch-btn" data-ch="b">B</button>
+        <button class="ch-btn" data-ch="bw">B/W</button>
+      </div>
+
+      <div id="panels">
+        <div class="panel active" id="panel-original">
+          <div id="placeholder">Press <strong>Render</strong> to load…</div>
+        </div>
+        <div class="panel" id="panel-mask"></div>
+        <div class="panel" id="panel-result"></div>
+      </div>
+    </div>
+  </main>
+
+  <canvas id="offscreen" style="display:none"></canvas>
+
+  <!-- Floating preview button (overlay) -->
+  <button id="btn-preview"><span class="spinner" id="btn-preview-spinner" aria-hidden="true"></span>Render</button>
+
+  <script>
+    // ============================================================
+    // Sliders with live labels
+    // ============================================================
+    const SLIDERS = {
+      sat_threshold: { lbl: "v-sat", dec: 2 },
+      val_min: { lbl: "v-vmin", dec: 2 },
+      val_max: { lbl: "v-vmax", dec: 2 },
+      blur_sigma: { lbl: "v-blur", dec: 1 },
+      erode_iter: { lbl: "v-erode", dec: 0 },
+      dilate_iter: { lbl: "v-dilate", dec: 0 },
+      freq_sigma: { lbl: "v-freqsig", dec: 0 },
+      removal_strength: { lbl: "v-strength", dec: 2 },
+      render_pct: { lbl: "v-render-pct", dec: 0 },
+      et_border_width: { lbl: "v-et-bw", dec: 0 },
+      et_blend_strength: { lbl: "v-et-bs", dec: 2 },
+      et_edge_blend_radius: { lbl: "v-et-er", dec: 0 },
+      et_min_border_px: { lbl: "v-et-mbp", dec: 0 },
+      et_min_island_px: { lbl: "v-et-mip", dec: 0 },
+    };
+    for (const [id, { lbl, dec }] of Object.entries(SLIDERS)) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      el.addEventListener("input", () =>
+        document.getElementById(lbl).textContent = parseFloat(el.value).toFixed(dec));
+    }
+    // Initialize labels to match current slider values on load
+    for (const [id, { lbl, dec }] of Object.entries(SLIDERS)) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      document.getElementById(lbl).textContent = parseFloat(el.value).toFixed(dec);
+    }
+
+    // ============================================================
+    // Pill button groups (single-select)
+    // ============================================================
+    function makePillGroup(groupId) {
+      const group = document.getElementById(groupId);
+      group.querySelectorAll(".pill").forEach(btn => {
+        btn.addEventListener("click", () => {
+          group.querySelectorAll(".pill").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          // fire custom event so strategy badge / hints can update
+          group.dispatchEvent(new Event("change"));
+        });
+      });
+      return {
+        getValue: () => group.querySelector(".pill.active")?.dataset.val ?? null,
+      };
+    }
+
+    const etModeGroup = makePillGroup("et-mode-group");
+    const etCsGroup = makePillGroup("et-cs-group");
+
+    // Update mode hint text
+    const MODE_HINTS = {
+      mean: "Shifts the mean of masked pixels to match the border mean. Preserves all relative contrasts.",
+      mean_std: "Matches mean and per-channel standard deviation. Good balance of speed and quality.",
+      covariance: "Full 3×3 covariance matching (Monge-Kantorovich optimal transport). Most powerful, needs many pixels.",
+    };
+    document.getElementById("et-mode-group").addEventListener("change", () => {
+      const mode = etModeGroup.getValue();
+      document.getElementById("et-mode-hint").textContent = MODE_HINTS[mode] ?? "";
+    });
+    // Ensure the hint reflects the initial active mode
+    document.getElementById("et-mode-group").dispatchEvent(new Event("change"));
+
+    // ============================================================
+    // Strategy toggles & A4 control visibility
+    // ============================================================
+    const BADGE_LABELS = {
+      "00": "A1 — LAB Neutral",
+      "10": "A2 — Reference Tone",
+      "01": "A1+A3 — Freq Sep + LAB",
+      "11": "A2+A3 — Freq Sep + Ref Tone ★",
+    };
+
+    function updateStrategy() {
+      const a2 = document.getElementById("use_a2").checked;
+      const a3 = document.getElementById("use_a3").checked;
+      const a4 = document.getElementById("use_a4").checked;
+
+      document.getElementById("strategy-badge").textContent =
+        a4 ? "A4 — Edge Transfer (overrides A1–A3)"
+          : (BADGE_LABELS[`${+a2}${+a3}`] ?? "A1");
+
+      // A4 dims A1–A3 controls, shows its own panel
+      document.getElementById("row-a2").classList.toggle("dimmed", a4);
+      document.getElementById("row-a3").classList.toggle("dimmed", a4);
+      document.getElementById("freq-controls").style.display = (!a4 && a3) ? "block" : "none";
+      document.getElementById("a4-controls").style.display = a4 ? "flex" : "none";
+      if (a4) document.getElementById("a4-controls").style.flexDirection = "column";
+      document.getElementById("a4-controls").style.gap = "10px";
+
+      // Chroma strength is only meaningful for A1–A3
+      document.getElementById("chroma-strength-row").style.display = a4 ? "none" : "block";
+    }
+
+    ["use_a2", "use_a3", "use_a4"].forEach(id =>
+      document.getElementById(id).addEventListener("change", updateStrategy));
+
+    // Ensure A2–A4 toggles start turned off by default
+    document.getElementById("use_a2").checked = false;
+    document.getElementById("use_a3").checked = false;
+    document.getElementById("use_a4").checked = false;
+    updateStrategy();
+    // Edge feather radius visibility
+    document.getElementById("et_edge_blend").addEventListener("change", e => {
+      document.getElementById("et-edge-radius-row").style.display =
+        e.target.checked ? "block" : "none";
+    });
+
+    // ============================================================
+    // Tabs
+    // ============================================================
+    const CH_PANELS = new Set(["original", "result", "mask"]);
+    document.querySelectorAll(".tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById("panel-" + tab.dataset.panel).classList.add("active");
+        document.getElementById("channel-bar").style.display =
+          CH_PANELS.has(tab.dataset.panel) ? "flex" : "none";
+      });
+    });
+
+    // ============================================================
+    // Zoom
+    // ============================================================
+    const ZOOM_STEPS = [25, 33, 50, 67, 75, 100, 125, 150, 200, 300, 400];
+    let zoomIdx = 5;
+
+    function applyZoom() {
+      const pct = ZOOM_STEPS[zoomIdx];
+      document.getElementById("zoom-label").textContent = pct + "%";
+      document.querySelectorAll(".panel img").forEach(img => {
+        const nw = img.dataset.nw, nh = img.dataset.nh;
+        if (!nw) return;
+        img.style.maxWidth = img.style.maxHeight = "none";
+        img.style.width = (nw * pct / 100) + "px";
+        img.style.height = (nh * pct / 100) + "px";
+      });
+    }
+    document.getElementById("btn-zoom-in").addEventListener("click", () => { if (zoomIdx < ZOOM_STEPS.length - 1) { zoomIdx++; applyZoom(); } });
+    document.getElementById("btn-zoom-out").addEventListener("click", () => { if (zoomIdx > 0) { zoomIdx--; applyZoom(); } });
+    document.getElementById("btn-zoom-fit").addEventListener("click", () => {
+      document.getElementById("zoom-label").textContent = "fit";
+      document.querySelectorAll(".panel img").forEach(img => {
+        img.style.width = img.style.height = "";
+        img.style.maxWidth = img.style.maxHeight = "100%";
+      });
+    });
+
+    // ============================================================
+    // Channel extraction (client-side canvas)
+    // ============================================================
+    let currentChannel = "rgb";
+    const panelChannels = { "panel-original": null, "panel-mask": null, "panel-result": null };
+
+    function extractChannelDataURL(rgbSrc, ch) {
+      return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          const c = document.getElementById("offscreen");
+          c.width = img.naturalWidth; c.height = img.naturalHeight;
+          const ctx = c.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          const id = ctx.getImageData(0, 0, c.width, c.height);
+          const d = id.data;
+          if (ch === "bw") {
+            for (let i = 0; i < d.length; i += 4) {
+              const r = d[i], g = d[i + 1], b = d[i + 2];
+              const v = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+              d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255;
+            }
+          } else {
+            const i0 = { r: 0, g: 1, b: 2 }[ch];
+            for (let i = 0; i < d.length; i += 4) {
+              const v = d[i + i0]; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255;
+            }
+          }
+          ctx.putImageData(id, 0, 0);
+          resolve(c.toDataURL("image/png"));
+        };
+        img.src = rgbSrc;
+      });
+    }
+
+    async function buildChannels(panelId, b64) {
+      const rgb = "data:image/png;base64," + b64;
+      const ch = { rgb };
+      for (const c of ["r", "g", "b"]) ch[c] = await extractChannelDataURL(rgb, c);
+      ch.bw = await extractChannelDataURL(rgb, "bw");
+      panelChannels[panelId] = ch;
+    }
+    function showChannel(panelId, ch) {
+      const d = panelChannels[panelId]; if (!d) return;
+      const img = document.getElementById(panelId).querySelector("img");
+      if (img) img.src = d[ch] ?? d.rgb;
+    }
+
+    document.querySelectorAll(".ch-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".ch-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentChannel = btn.dataset.ch;
+        showChannel("panel-original", currentChannel);
+        showChannel("panel-mask", currentChannel);
+        showChannel("panel-result", currentChannel);
+      });
+    });
+
+    // ============================================================
+    // Colour filters
+    // ============================================================
+    let filters = [];
+    const DEFAULT_COLORS = ["#ffffff", "#f5e6d0", "#e8d5c0", "#d4c4b0", "#c8b8a8"];
+    let colorCursor = 0;
+
+    const filterListEl = document.getElementById("filter-list");
+    const filterEmptyEl = document.getElementById("filter-empty");
+
+    function renderFilters() {
+      filterListEl.innerHTML = "";
+      filterEmptyEl.style.display = filters.length ? "none" : "block";
+      filters.forEach((filt, i) => {
+        const row = document.createElement("div");
+        row.className = "filter-row"; row.dataset.idx = i; row.draggable = true;
+        row.innerHTML = `
+      <span class="filt-handle" title="Drag to reorder">⠿</span>
+      <input type="color" class="filt-color" value="${filt.color}">
+      <div class="filt-mid">
+        <div class="filt-top">
+          <span class="filt-color-label">${filt.color.toUpperCase()}</span>
+          <span class="filt-opacity-val">${(filt.opacity * 100).toFixed(0)}%</span>
+        </div>
+        <input type="range" class="filt-opacity" min="0" max="1" step="0.01" value="${filt.opacity}">
+      </div>
+      <button class="filt-remove" title="Remove">✕</button>`;
+
+        row.querySelector(".filt-color").addEventListener("input", e => {
+          filters[i].color = e.target.value;
+          row.querySelector(".filt-color-label").textContent = e.target.value.toUpperCase();
+        });
+        row.querySelector(".filt-opacity").addEventListener("input", e => {
+          filters[i].opacity = parseFloat(e.target.value);
+          row.querySelector(".filt-opacity-val").textContent = (filters[i].opacity * 100).toFixed(0) + "%";
+        });
+        row.querySelector(".filt-remove").addEventListener("click", () => { filters.splice(i, 1); renderFilters(); });
+        row.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", i); row.classList.add("dragging"); });
+        row.addEventListener("dragend", () => row.classList.remove("dragging"));
+        row.addEventListener("dragover", e => { e.preventDefault(); row.classList.add("drag-over"); });
+        row.addEventListener("dragleave", () => row.classList.remove("drag-over"));
+        row.addEventListener("drop", e => {
+          e.preventDefault(); row.classList.remove("drag-over");
+          const from = parseInt(e.dataTransfer.getData("text/plain")), to = i;
+          if (from !== to) { const [m] = filters.splice(from, 1); filters.splice(to, 0, m); renderFilters(); }
+        });
+        filterListEl.appendChild(row);
+      });
+    }
+    document.getElementById("btn-add-filter").addEventListener("click", () => {
+      filters.push({ color: DEFAULT_COLORS[colorCursor++ % DEFAULT_COLORS.length], opacity: 0.50 });
+      renderFilters();
+    });
+    renderFilters();
+
+    // ============================================================
+    // Params collection
+    // ============================================================
+    function getParams() {
+      const p = {};
+      for (const [id, { dec }] of Object.entries(SLIDERS)) {
+        const el = document.getElementById(id); if (!el) continue;
+        p[id] = dec === 0 ? parseInt(el.value) : parseFloat(el.value);
+      }
+      p.use_a2 = document.getElementById("use_a2").checked;
+      p.use_a3 = document.getElementById("use_a3").checked;
+      p.use_a4 = document.getElementById("use_a4").checked;
+      p.et_transform_mode = etModeGroup.getValue();
+      p.et_colorspace = etCsGroup.getValue();
+      p.et_edge_blend = document.getElementById("et_edge_blend").checked;
+      p.filters = filters.map(f => ({ color: f.color, opacity: f.opacity }));
+      return p;
+    }
+
+    // ============================================================
+    // Panel filling + preview/download
+    // ============================================================
+    async function fillPanel(panelId, b64, withChannels) {
+      const panel = document.getElementById(panelId);
+      let img = panel.querySelector("img");
+      if (!img) {
+        panel.innerHTML = "";
+        img = document.createElement("img");
+        img.addEventListener("load", () => { img.dataset.nw = img.naturalWidth; img.dataset.nh = img.naturalHeight; applyZoom(); });
+        panel.appendChild(img);
+      }
+      img.src = "data:image/png;base64," + b64;
+      if (withChannels) { await buildChannels(panelId, b64); showChannel(panelId, currentChannel); }
+    }
+
+    function setStatus(msg, loading = false) {
+      document.getElementById("status").innerHTML =
+        loading ? `<span class="spinner"></span>${msg}` : msg;
+    }
+
+    document.getElementById("btn-preview").addEventListener("click", async () => {
+      const spinner = document.getElementById("btn-preview-spinner");
+      if (spinner) spinner.style.display = "inline-block";
+      setStatus("Generating preview…", true);
+      try {
+        const res = await fetch("/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(getParams()) });
+        const data = await res.json();
+        await fillPanel("panel-original", data.original, true);
+        await fillPanel("panel-mask", data.mask, true);
+        await fillPanel("panel-result", data.result, true);
+        setStatus("Preview ready — " + new Date().toLocaleTimeString());
+      } catch (e) { setStatus("Error: " + e.message); }
+      finally { if (spinner) spinner.style.display = "none"; }
+    });
+
+    document.getElementById("btn-download").addEventListener("click", async () => {
+      setStatus("Processing full-resolution image…", true);
+      try {
+        const res = await fetch("/download", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(getParams()) });
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "diaper_no_artwork.tif"; a.click();
+        URL.revokeObjectURL(url);
+        setStatus("Download started.");
+      } catch (e) { setStatus("Error: " + e.message); }
+    });
+  </script>
+</body>
+
+</html>
