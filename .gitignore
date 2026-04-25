@@ -1,0 +1,20 @@
+# Images
+*.tif
+*.TIF
+*.TIFF
+*.tiff
+*.TIFF
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.webp
+*.svg
+*.ico
+
+
+# Misc
+__pycache__/
+*.pyc
+.DS_Store

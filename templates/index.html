@@ -333,12 +333,22 @@
       cursor: pointer;
     }
 
-    .filt-opacity::-webkit-slider-thumb {
+    .filt-opacity::-webkit-slider-thumb,
+    .filt-adj::-webkit-slider-thumb {
       -webkit-appearance: none;
       width: 12px;
       height: 12px;
       border-radius: 50%;
       background: #e94560;
+      cursor: pointer;
+    }
+
+    .filt-adj {
+      -webkit-appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: #0f3460;
+      outline: none;
       cursor: pointer;
     }
 
@@ -618,6 +628,160 @@
         transform: rotate(360deg);
       }
     }
+
+    /* ---- batch panel ---- */
+    #panel-batch {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .batch-block {
+      margin-bottom: 20px;
+    }
+
+    .batch-input-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .batch-text-input {
+      flex: 1;
+      padding: 8px 10px;
+      background: #0a1628;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      color: #e0e0e0;
+      font-size: 0.83rem;
+      font-family: monospace;
+      outline: none;
+    }
+
+    .batch-text-input:focus {
+      border-color: #7ec8e3;
+    }
+
+    .batch-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+      white-space: nowrap;
+    }
+
+    .batch-btn-primary {
+      background: #e94560;
+      color: #fff;
+    }
+
+    .batch-btn-primary:hover {
+      background: #c73050;
+    }
+
+    .batch-btn-primary:disabled {
+      background: #7a2030;
+      color: #aaa;
+      cursor: not-allowed;
+    }
+
+    .batch-btn-secondary {
+      background: #0f3460;
+      color: #7ec8e3;
+      border: 1px solid #7ec8e3;
+    }
+
+    .batch-btn-secondary:hover {
+      background: #1a4a80;
+    }
+
+    #batch-file-list {
+      max-height: 180px;
+      overflow-y: auto;
+      background: #0a0e1a;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      padding: 6px 8px;
+      margin-top: 8px;
+      font-size: 0.75rem;
+      font-family: monospace;
+      color: #7ec8e3;
+      line-height: 1.7;
+    }
+
+    #batch-file-list .fpath {
+      color: #aaa;
+    }
+
+    /* Progress bar */
+    #batch-progress-wrap {
+      background: #0a1628;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      height: 18px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    #batch-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #e94560, #c73050);
+      width: 0%;
+      transition: width .3s;
+    }
+
+    #batch-progress-text {
+      font-size: 0.75rem;
+      color: #888;
+      margin-top: 6px;
+    }
+
+    #batch-current-file {
+      font-size: 0.72rem;
+      color: #555;
+      font-family: monospace;
+      margin-top: 4px;
+      word-break: break-all;
+    }
+
+    .batch-result-box {
+      background: #0d1a30;
+      border: 1px solid #0f3460;
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 0.82rem;
+      color: #ccc;
+      line-height: 1.8;
+    }
+
+    .batch-result-box strong {
+      color: #e94560;
+    }
+
+    .batch-hint {
+      font-size: 0.7rem;
+      color: #555;
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+
+    .batch-error-list {
+      max-height: 100px;
+      overflow-y: auto;
+      background: #1a0a0e;
+      border: 1px solid #5a2030;
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-size: 0.72rem;
+      font-family: monospace;
+      color: #e94560;
+      margin-top: 6px;
+    }
   </style>
 </head>
 
@@ -635,11 +799,50 @@
 
       <!-- ── Colour Detection Mask ── -->
       <div>
-        <div class="section-title">Colour Detection Mask</div>
         <div class="control">
-          <label>Saturation threshold <span id="v-sat">0.08</span></label>
-          <input type="range" id="sat_threshold" min="0.01" max="0.60" step="0.01" value="0.08">
-          <div class="hint">HSV saturation above this → artwork pixel. Lower = more aggressive.</div>
+          <label>Image</label>
+          <select id="image_select">
+            {% for img in images %}
+            <option value="{{ img }}" {% if img==current_image %}selected{% endif %}>{{ img }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="section-title">Colour Detection Mask</div>
+
+        <!-- Detection mode -->
+        <div class="control">
+          <div class="row-label" style="font-size:0.72rem;color:#888;margin-bottom:6px">Detection method</div>
+          <div class="pill-group" id="mask-mode-group">
+            <button class="pill active" data-val="hsv_sat">HSV Sat</button>
+            <button class="pill" data-val="lab_chroma">LAB Chroma</button>
+            <button class="pill" data-val="hue_range">Hue Range</button>
+            <button class="pill" data-val="combined">Combined</button>
+            <button class="pill" data-val="delta_e">ΔE Grey</button>
+            <button class="pill" data-val="channel_diff">Ch. Diff</button>
+          </div>
+          <div class="hint mt" id="mask-mode-hint">HSV saturation: classic, fast. Works well when colours are vivid.
+          </div>
+        </div>
+
+        <!-- Hue range controls (shown only in hue_range mode) -->
+        <div id="hue-range-controls" style="display:none">
+          <div class="control mt">
+            <label>Hue centre (°) <span id="v-hue-center">0</span></label>
+            <input type="range" id="hue_center" min="0" max="359" step="1" value="0">
+            <div class="hint">0=red · 60=yellow · 120=green · 180=cyan · 240=blue · 300=magenta</div>
+          </div>
+          <div class="control mt">
+            <label>Hue width (°) <span id="v-hue-width">60</span></label>
+            <input type="range" id="hue_width" min="5" max="180" step="5" value="60">
+            <div class="hint">Selects ± width/2 degrees around the centre hue.</div>
+          </div>
+        </div>
+
+        <div class="control mt">
+          <label>Threshold <span id="v-sat">0.07</span></label>
+          <input type="range" id="sat_threshold" min="0.01" max="0.60" step="0.01" value="0.07">
+          <div class="hint" id="sat-hint">Score above this → artwork pixel. Lower = more aggressive.</div>
         </div>
         <div class="control mt">
           <label>Min brightness (V) <span id="v-vmin">0.00</span></label>
@@ -715,6 +918,19 @@
         <div id="a4-controls" style="display:none">
 
           <div class="control-row">
+            <div class="row-label">A4 fill mode</div>
+            <div class="pill-group" id="et-a4-mode-group">
+              <button class="pill active" data-val="edge_transfer">Edge Transfer</button>
+              <button class="pill" data-val="radiant">Radiant</button>
+              <button class="pill" data-val="propagate">Propagate</button>
+            </div>
+            <div class="hint mt" id="et-a4-mode-hint">Edge Transfer: statistical colour mapping from surrounding border pixels to each masked island.</div>
+          </div>
+
+          <!-- Edge Transfer specific params (hidden for other modes) -->
+          <div id="et-edge-transfer-params">
+
+          <div class="control-row">
             <div class="row-label">Transform mode</div>
             <div class="pill-group" id="et-mode-group">
               <button class="pill" data-val="mean">Mean shift</button>
@@ -739,6 +955,8 @@
             <input type="range" id="et_border_width" min="1" max="40" step="1" value="10">
             <div class="hint">How far outside each island to sample reference pixels.</div>
           </div>
+
+          </div><!-- /et-edge-transfer-params -->
 
           <div class="control">
             <label>Blend strength <span id="v-et-bs">1.00</span></label>
@@ -776,6 +994,40 @@
             <div class="hint">Islands smaller than this are skipped.</div>
           </div>
 
+          <!-- Lock luminance -->
+          <div class="toggle-row">
+            <label class="toggle"><input type="checkbox" id="et_lock_luma"><span class="toggle-track"></span></label>
+            <div class="toggle-info">
+              <strong style="font-size:0.8rem">Lock luminance (L*)</strong>
+              <div class="hint" style="margin-top:2px">Only shift chrominance (a*, b*); preserve original pixel
+                lightness. Requires LAB colour space.</div>
+            </div>
+          </div>
+
+          <!-- Clean border reference -->
+          <div class="toggle-row">
+            <label class="toggle"><input type="checkbox" id="et_clean_border"><span class="toggle-track"></span></label>
+            <div class="toggle-info">
+              <strong style="font-size:0.8rem">Clean border reference</strong>
+              <div class="hint" style="margin-top:2px">Exclude saturated pixels from the border sample to avoid
+                accidentally sampling nearby artwork as reference.</div>
+            </div>
+          </div>
+          <div id="et-clean-border-row" style="display:none">
+            <div class="control mt">
+              <label>Border sat. cutoff <span id="v-et-cbs">0.15</span></label>
+              <input type="range" id="et_clean_border_sat" min="0.02" max="0.60" step="0.01" value="0.15">
+              <div class="hint">Border pixels more saturated than this are excluded.</div>
+            </div>
+          </div>
+
+          <!-- Refinement passes -->
+          <div class="control">
+            <label>Refinement passes <span id="v-et-passes">1</span></label>
+            <input type="range" id="et_passes" min="1" max="5" step="1" value="1">
+            <div class="hint">Run the transfer multiple times; each pass uses the previous result as input.</div>
+          </div>
+
         </div><!-- /a4-controls -->
 
         <!-- Chroma strength (A1–A3 only) -->
@@ -801,8 +1053,13 @@
         <div class="section-title">Render</div>
         <div class="control">
           <label>Render resolution % <span id="v-render-pct">100</span></label>
-          <input type="range" id="render_pct" min="10" max="200" step="5" value="100">
-          <div class="hint">Preview rendering scale (percent).</div>
+          <input type="range" id="render_pct" min="10" max="100" step="5" value="40">
+          <div class="hint">Preview rendering scale (percent of full resolution).</div>
+        </div>
+        <div class="control mt">
+          <label>Gamma <span id="v-gamma">1.00</span></label>
+          <input type="range" id="gamma" min="0.25" max="2.50" step="0.05" value="1.00">
+          <div class="hint">Output gamma correction. &lt;1 = brighten · &gt;1 = darken. Applied to result only.</div>
         </div>
       </div>
 
@@ -819,6 +1076,7 @@
         <div class="tab active" data-panel="original">Original</div>
         <div class="tab" data-panel="mask">Mask overlay</div>
         <div class="tab" data-panel="result">Result</div>
+        <div class="tab" data-panel="batch">Batch</div>
         <div id="zoom-controls">
           <button id="btn-zoom-out">−</button>
           <span id="zoom-label">100%</span>
@@ -842,6 +1100,81 @@
         </div>
         <div class="panel" id="panel-mask"></div>
         <div class="panel" id="panel-result"></div>
+
+        <!-- ====== Batch panel ====== -->
+        <div class="panel" id="panel-batch">
+
+          <!-- Input folder -->
+          <div class="batch-block">
+            <div class="section-title"
+              style="color:#e94560;font-size:0.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;">
+              Input Folder</div>
+            <div class="batch-input-row">
+              <input type="text" id="batch-input-folder" class="batch-text-input"
+                placeholder="/absolute/path/to/folder with TIF files">
+              <button class="batch-btn batch-btn-secondary" id="btn-batch-scan">Scan</button>
+            </div>
+            <div class="batch-hint">Searched recursively for .tif / .tiff files.</div>
+          </div>
+
+          <!-- Output folder -->
+          <div class="batch-block">
+            <div class="section-title"
+              style="color:#e94560;font-size:0.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;">
+              Output Folder</div>
+            <input type="text" id="batch-output-folder" class="batch-text-input" style="width:100%"
+              placeholder="(default: &lt;input folder&gt;/results)">
+            <div class="batch-hint">Results written here: <code>problem1_submission.csv</code> + <code>images/</code>
+            </div>
+          </div>
+
+          <!-- Scan results -->
+          <div class="batch-block" id="batch-scan-block" style="display:none">
+            <div class="section-title"
+              style="color:#e94560;font-size:0.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;">
+              Found Files <span id="batch-file-count-badge"
+                style="color:#7ec8e3;font-weight:400;text-transform:none;letter-spacing:0"></span>
+            </div>
+            <div id="batch-file-list"></div>
+            <div class="batch-hint" style="margin-top:10px">
+              Algorithm settings are taken from the sidebar. Adjust them before running.
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button class="batch-btn batch-btn-primary" id="btn-batch-run" style="flex:1">Run Batch
+                Processing</button>
+            </div>
+          </div>
+
+          <!-- Progress -->
+          <div class="batch-block" id="batch-progress-block" style="display:none">
+            <div class="section-title"
+              style="color:#e94560;font-size:0.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;">
+              Progress</div>
+            <div id="batch-progress-wrap">
+              <div id="batch-progress-fill"></div>
+            </div>
+            <div id="batch-progress-text"></div>
+            <div id="batch-current-file"></div>
+          </div>
+
+          <!-- Results -->
+          <div class="batch-block" id="batch-results-block" style="display:none">
+            <div class="section-title"
+              style="color:#e94560;font-size:0.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;">
+              Results</div>
+            <div class="batch-result-box" id="batch-results-info"></div>
+            <div id="batch-errors-block" style="display:none">
+              <div style="font-size:0.72rem;color:#e94560;margin-top:10px;font-weight:600">Errors</div>
+              <div class="batch-error-list" id="batch-errors-list"></div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button class="batch-btn batch-btn-secondary" id="btn-batch-download-csv" style="flex:1">Download
+                CSV</button>
+              <button class="batch-btn batch-btn-secondary" id="btn-batch-new" style="flex:0 0 auto">New Batch</button>
+            </div>
+          </div>
+
+        </div><!-- /panel-batch -->
       </div>
     </div>
   </main>
@@ -862,6 +1195,8 @@
       blur_sigma: { lbl: "v-blur", dec: 1 },
       erode_iter: { lbl: "v-erode", dec: 0 },
       dilate_iter: { lbl: "v-dilate", dec: 0 },
+      hue_center: { lbl: "v-hue-center", dec: 0 },
+      hue_width: { lbl: "v-hue-width", dec: 0 },
       freq_sigma: { lbl: "v-freqsig", dec: 0 },
       removal_strength: { lbl: "v-strength", dec: 2 },
       render_pct: { lbl: "v-render-pct", dec: 0 },
@@ -870,6 +1205,9 @@
       et_edge_blend_radius: { lbl: "v-et-er", dec: 0 },
       et_min_border_px: { lbl: "v-et-mbp", dec: 0 },
       et_min_island_px: { lbl: "v-et-mip", dec: 0 },
+      et_passes: { lbl: "v-et-passes", dec: 0 },
+      et_clean_border_sat: { lbl: "v-et-cbs", dec: 2 },
+      gamma: { lbl: "v-gamma", dec: 2 },
     };
     for (const [id, { lbl, dec }] of Object.entries(SLIDERS)) {
       const el = document.getElementById(id);
@@ -902,8 +1240,43 @@
       };
     }
 
-    const etModeGroup = makePillGroup("et-mode-group");
-    const etCsGroup = makePillGroup("et-cs-group");
+    const etModeGroup   = makePillGroup("et-mode-group");
+    const etCsGroup     = makePillGroup("et-cs-group");
+    const maskModeGroup = makePillGroup("mask-mode-group");
+    const etA4ModeGroup = makePillGroup("et-a4-mode-group");
+
+    const ET_A4_MODE_HINTS = {
+      edge_transfer: "Edge Transfer: statistical colour mapping from surrounding border pixels to each masked island.",
+      radiant: "Radiant: inverse-distance blend from the nearest non-masked pixel in each of the 4 cardinal directions. Fast, smooth, fully vectorised.",
+      propagate: "Propagate: BFS-style fill from the mask boundary inward. Each pixel is computed as the 3×3 average of already-known neighbours. Produces very smooth, diffused results but is slower for large masks.",
+    };
+    document.getElementById("et-a4-mode-group").addEventListener("change", () => {
+      const mode = etA4ModeGroup.getValue();
+      document.getElementById("et-a4-mode-hint").textContent = ET_A4_MODE_HINTS[mode] ?? "";
+      // Show edge-transfer-specific params only for that mode
+      document.getElementById("et-edge-transfer-params").style.display =
+        mode === "edge_transfer" ? "flex" : "none";
+      if (mode === "edge_transfer")
+        document.getElementById("et-edge-transfer-params").style.flexDirection = "column";
+    });
+    document.getElementById("et-a4-mode-group").dispatchEvent(new Event("change"));
+
+    // Mask-mode hints and hue-range control visibility
+    const MASK_MODE_HINTS = {
+      hsv_sat: "HSV saturation: classic, fast. Works well when colours are vivid.",
+      lab_chroma: "LAB C* chroma: perceptually uniform. Better at catching desaturated pastels and warm tones that HSV misses.",
+      hue_range: "Hue range: select only pixels near a specific hue. Use when you know the artwork colours. Saturation threshold still applies.",
+      combined: "Combined (union): pixel is selected if either HSV-sat OR LAB-chroma exceeds the threshold. Catches more at the cost of slightly more false-positives.",
+      delta_e: "ΔE Grey: detects gray/achromatic artwork by measuring perceptual colour distance (CIE76 ΔE) from the auto-sampled substrate background. Threshold is ΔE ÷ 50 — try 0.10 (ΔE≈5) to 0.30 (ΔE≈15).",
+      channel_diff: "Channel Diff: per-channel deviation from neutral grey — max(|R−m|, |G−m|, |B−m|) where m=(R+G+B)/3. More stable than HSV Sat for very bright or very dark artwork. Use same 0.05–0.07 threshold range.",
+    };
+    document.getElementById("mask-mode-group").addEventListener("change", () => {
+      const mode = maskModeGroup.getValue();
+      document.getElementById("mask-mode-hint").textContent = MASK_MODE_HINTS[mode] ?? "";
+      document.getElementById("hue-range-controls").style.display = mode === "hue_range" ? "block" : "none";
+    });
+    // Fire once to set initial state
+    document.getElementById("mask-mode-group").dispatchEvent(new Event("change"));
 
     // Update mode hint text
     const MODE_HINTS = {
@@ -955,11 +1328,18 @@
     // Ensure A2–A4 toggles start turned off by default
     document.getElementById("use_a2").checked = false;
     document.getElementById("use_a3").checked = false;
-    document.getElementById("use_a4").checked = false;
+    // Default to A4 selected per user request
+    document.getElementById("use_a4").checked = true;
     updateStrategy();
     // Edge feather radius visibility
     document.getElementById("et_edge_blend").addEventListener("change", e => {
       document.getElementById("et-edge-radius-row").style.display =
+        e.target.checked ? "block" : "none";
+    });
+
+    // Clean border sat cutoff visibility
+    document.getElementById("et_clean_border").addEventListener("change", e => {
+      document.getElementById("et-clean-border-row").style.display =
         e.target.checked ? "block" : "none";
     });
 
@@ -973,8 +1353,10 @@
         document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
         tab.classList.add("active");
         document.getElementById("panel-" + tab.dataset.panel).classList.add("active");
+        const isBatch = tab.dataset.panel === "batch";
         document.getElementById("channel-bar").style.display =
           CH_PANELS.has(tab.dataset.panel) ? "flex" : "none";
+        document.getElementById("zoom-controls").style.display = isBatch ? "none" : "flex";
       });
     });
 
@@ -1078,6 +1460,9 @@
       filterListEl.innerHTML = "";
       filterEmptyEl.style.display = filters.length ? "none" : "block";
       filters.forEach((filt, i) => {
+        const bri = (filt.brightness ?? 1.0).toFixed(2);
+        const con = (filt.contrast   ?? 1.0).toFixed(2);
+        const sat = (filt.saturation ?? 1.0).toFixed(2);
         const row = document.createElement("div");
         row.className = "filter-row"; row.dataset.idx = i; row.draggable = true;
         row.innerHTML = `
@@ -1089,6 +1474,14 @@
           <span class="filt-opacity-val">${(filt.opacity * 100).toFixed(0)}%</span>
         </div>
         <input type="range" class="filt-opacity" min="0" max="1" step="0.01" value="${filt.opacity}">
+        <div style="display:flex;gap:6px;margin-top:5px;font-size:0.66rem;color:#666">
+          <span style="min-width:48px">Bri <span class="v-bri">${bri}</span></span>
+          <input type="range" class="filt-bri filt-adj" min="0.25" max="2.0" step="0.05" value="${bri}" style="flex:1">
+          <span style="min-width:48px">Con <span class="v-con">${con}</span></span>
+          <input type="range" class="filt-con filt-adj" min="0.0" max="2.0" step="0.05" value="${con}" style="flex:1">
+          <span style="min-width:48px">Sat <span class="v-sat-f">${sat}</span></span>
+          <input type="range" class="filt-sat filt-adj" min="0.0" max="2.0" step="0.05" value="${sat}" style="flex:1">
+        </div>
       </div>
       <button class="filt-remove" title="Remove">✕</button>`;
 
@@ -1099,6 +1492,18 @@
         row.querySelector(".filt-opacity").addEventListener("input", e => {
           filters[i].opacity = parseFloat(e.target.value);
           row.querySelector(".filt-opacity-val").textContent = (filters[i].opacity * 100).toFixed(0) + "%";
+        });
+        row.querySelector(".filt-bri").addEventListener("input", e => {
+          filters[i].brightness = parseFloat(e.target.value);
+          row.querySelector(".v-bri").textContent = filters[i].brightness.toFixed(2);
+        });
+        row.querySelector(".filt-con").addEventListener("input", e => {
+          filters[i].contrast = parseFloat(e.target.value);
+          row.querySelector(".v-con").textContent = filters[i].contrast.toFixed(2);
+        });
+        row.querySelector(".filt-sat").addEventListener("input", e => {
+          filters[i].saturation = parseFloat(e.target.value);
+          row.querySelector(".v-sat-f").textContent = filters[i].saturation.toFixed(2);
         });
         row.querySelector(".filt-remove").addEventListener("click", () => { filters.splice(i, 1); renderFilters(); });
         row.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", i); row.classList.add("dragging"); });
@@ -1114,7 +1519,13 @@
       });
     }
     document.getElementById("btn-add-filter").addEventListener("click", () => {
-      filters.push({ color: DEFAULT_COLORS[colorCursor++ % DEFAULT_COLORS.length], opacity: 0.50 });
+      filters.push({
+        color: DEFAULT_COLORS[colorCursor++ % DEFAULT_COLORS.length],
+        opacity: 0.50,
+        brightness: 1.0,
+        contrast: 1.0,
+        saturation: 1.0,
+      });
       renderFilters();
     });
     renderFilters();
@@ -1133,8 +1544,21 @@
       p.use_a4 = document.getElementById("use_a4").checked;
       p.et_transform_mode = etModeGroup.getValue();
       p.et_colorspace = etCsGroup.getValue();
+      p.et_a4_mode = etA4ModeGroup.getValue();
       p.et_edge_blend = document.getElementById("et_edge_blend").checked;
-      p.filters = filters.map(f => ({ color: f.color, opacity: f.opacity }));
+      p.et_lock_luma = document.getElementById("et_lock_luma").checked;
+      p.et_clean_border = document.getElementById("et_clean_border").checked;
+      p.mask_mode = maskModeGroup.getValue();
+      p.filters = filters.map(f => ({
+        color: f.color,
+        opacity: f.opacity,
+        brightness: f.brightness ?? 1.0,
+        contrast: f.contrast ?? 1.0,
+        saturation: f.saturation ?? 1.0,
+      }));
+      // Include selected image name so server can process the right file
+      const sel = document.getElementById("image_select");
+      if (sel) p.image = sel.value;
       return p;
     }
 
@@ -1185,6 +1609,138 @@
         URL.revokeObjectURL(url);
         setStatus("Download started.");
       } catch (e) { setStatus("Error: " + e.message); }
+    });
+
+    // ============================================================
+    // Batch processing
+    // ============================================================
+    let _batchJobId = null;
+    let _batchPollTimer = null;
+    let _batchFileCount = 0;
+
+    function batchShow(blockId) {
+      ["batch-scan-block", "batch-progress-block", "batch-results-block"].forEach(id => {
+        document.getElementById(id).style.display = id === blockId ? "block" : "none";
+      });
+    }
+
+    // Scan button
+    document.getElementById("btn-batch-scan").addEventListener("click", async () => {
+      const folder = document.getElementById("batch-input-folder").value.trim();
+      if (!folder) { alert("Please enter an input folder path."); return; }
+      const btn = document.getElementById("btn-batch-scan");
+      btn.textContent = "Scanning…"; btn.disabled = true;
+      try {
+        const res = await fetch("/batch/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ folder }),
+        });
+        const data = await res.json();
+        if (data.error) { alert("Error: " + data.error); return; }
+        _batchFileCount = data.count;
+        document.getElementById("batch-file-count-badge").textContent =
+          `— ${data.count} file${data.count !== 1 ? "s" : ""} found`;
+        const listEl = document.getElementById("batch-file-list");
+        if (data.count === 0) {
+          listEl.innerHTML = '<span style="color:#555">No TIF files found in this folder.</span>';
+        } else {
+          listEl.innerHTML = data.files
+            .map(f => `<div class="fpath">${f}</div>`)
+            .join("");
+        }
+        document.getElementById("btn-batch-run").disabled = data.count === 0;
+        batchShow("batch-scan-block");
+      } catch (e) { alert("Scan failed: " + e.message); }
+      finally { btn.textContent = "Scan"; btn.disabled = false; }
+    });
+
+    // Run button
+    document.getElementById("btn-batch-run").addEventListener("click", async () => {
+      const inputFolder = document.getElementById("batch-input-folder").value.trim();
+      const outputFolder = document.getElementById("batch-output-folder").value.trim();
+      if (!inputFolder) { alert("Please enter an input folder path."); return; }
+
+      batchShow("batch-progress-block");
+      document.getElementById("batch-progress-fill").style.width = "0%";
+      document.getElementById("batch-progress-text").textContent = "Starting…";
+      document.getElementById("batch-current-file").textContent = "";
+
+      try {
+        const res = await fetch("/batch/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ input_folder: inputFolder, output_folder: outputFolder || null, params: getParams() }),
+        });
+        const data = await res.json();
+        if (data.error) { alert("Error: " + data.error); batchShow("batch-scan-block"); return; }
+        _batchJobId = data.job_id;
+        _batchPollTimer = setInterval(batchPoll, 800);
+      } catch (e) { alert("Failed to start batch: " + e.message); batchShow("batch-scan-block"); }
+    });
+
+    async function batchPoll() {
+      if (!_batchJobId) return;
+      try {
+        const res = await fetch("/batch/status/" + _batchJobId);
+        const job = await res.json();
+
+        const pct = job.total > 0 ? Math.round((job.progress / job.total) * 100) : 0;
+        document.getElementById("batch-progress-fill").style.width = pct + "%";
+        document.getElementById("batch-progress-text").textContent =
+          `${job.progress} / ${job.total} files (${pct}%)`;
+        document.getElementById("batch-current-file").textContent =
+          job.current_file ? "Processing: " + job.current_file : "";
+
+        if (job.status === "done") {
+          clearInterval(_batchPollTimer);
+          _batchPollTimer = null;
+          batchShowResults(job);
+        } else if (job.status === "error") {
+          clearInterval(_batchPollTimer);
+          _batchPollTimer = null;
+          alert("Batch failed: " + (job.error || "Unknown error"));
+          batchShow("batch-scan-block");
+        }
+      } catch (e) { /* network hiccup, keep polling */ }
+    }
+
+    function batchShowResults(job) {
+      batchShow("batch-results-block");
+      document.getElementById("batch-results-info").innerHTML =
+        `<strong>${job.processed}</strong> images processed<br>` +
+        `<strong>${job.samples}</strong> samples in CSV<br>` +
+        `Output: <span style="font-family:monospace;font-size:0.78rem;color:#7ec8e3">${job.output_folder}</span>`;
+
+      const errors = job.errors || [];
+      const errBlock = document.getElementById("batch-errors-block");
+      if (errors.length > 0) {
+        errBlock.style.display = "block";
+        document.getElementById("batch-errors-list").textContent = errors.join("\n");
+      } else {
+        errBlock.style.display = "none";
+      }
+    }
+
+    // Download CSV button
+    document.getElementById("btn-batch-download-csv").addEventListener("click", () => {
+      if (!_batchJobId) return;
+      const a = document.createElement("a");
+      a.href = "/batch/download_csv/" + _batchJobId;
+      a.download = "problem1_submission.csv";
+      a.click();
+    });
+
+    // New Batch button
+    document.getElementById("btn-batch-new").addEventListener("click", () => {
+      _batchJobId = null;
+      document.getElementById("batch-input-folder").value = "";
+      document.getElementById("batch-output-folder").value = "";
+      document.getElementById("batch-file-count-badge").textContent = "";
+      document.getElementById("batch-file-list").innerHTML = "";
+      ["batch-scan-block", "batch-progress-block", "batch-results-block"].forEach(id =>
+        document.getElementById(id).style.display = "none"
+      );
     });
   </script>
 </body>

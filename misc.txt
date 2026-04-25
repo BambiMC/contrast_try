@@ -2,4 +2,14 @@ tiffcrop -z x1,y1,x2,y2 input.tif output.tif
 
 
 
-tiffcrop -z 700,800,2000,1600 0025_3a46f30c-eef7-4e6c-b485-0f54947856bc_003_S4_DL_F_FO_OUT_WH_1_60_F8_ISO100_01_28_2026_GIC.tif macro.tif
+tiffcrop -z 700,800,2000,1600 0025_3a46f30c-eef7-4e6c-b485-0f54947856bc_003_S4_DL_F_FO_OUT_WH_1_60_F8_ISO100_01_28_2026_GIC.tif macro1.tif
+tiffcrop -z 700,800,2000,1600 more_images/0001_6df24ca6-2508-49ab-b0be-2ec9bd81edf9_001_S2_DL_F_FO_OUT_WH_1_60_F8_ISO100_10_06_2025_GIC.tif macro2.tif
+tiffcrop -z 700,800,2000,1600 more_images/0001_d10f6c7e-7b3a-4c3e-b1e6-2bc91e3cd73c_001_S3_DL_F_FO_OUT_WH_1_60_F8_ISO100_12_10_2025_GIC.tif macro3.tif
+tiffcrop -z 700,800,2000,1600 more_images/0013_166dd41d-450b-47e6-a610-04dd32479192_002_S4_DL_F_FO_OUT_WH_1_60_F8_ISO100_11_27_2025_GIC.tif macro4.tif
+tiffcrop -z 700,800,2000,1600 more_images/0013_df9a3b09-3544-43c3-8290-cb7cdfef04f4_002_S7_DL_F_FO_OUT_WH_1_60_F8_ISO100_01_26_2026_GIC.tif macro5.tif
+
+Für folded ist threshold 0.05 ganz gut
+
+tiffcrop -z 700,800,2000,1600 more_images/0035_0c4dd8c2-638b-4459-a6cf-43a382ce7df7_003_S4_DL_F_UF_OUT_BL_1_60_F8_ISO100_01_14_2026_GIC.tif macro6.tif
+tiffcrop -z 700,800,2000,1600 0001_0639a38b-2407-4e66-af40-ea6df3748aa0_001_S5_DL_F_FO_OUT_WH_1_60_F8_ISO100_11_29_2022_GIC.tif macro7.tif
+0001_0639a38b-2407-4e66-af40-ea6df3748aa0_001_S5_DL_F_FO_OUT_WH_1_60_F8_ISO100_11_29_2022_GIC
