@@ -70,8 +70,9 @@ except FileNotFoundError:
 _batch_jobs: dict = {}
 
 IMAGE_DIR = os.path.dirname(__file__) + "/macro_images"
-# Discover available macro images
-IMAGE_FILES = sorted([os.path.basename(p) for p in glob.glob(os.path.join(IMAGE_DIR, "macro*.tif"))])
+# Discover available TIFF images in the folder (accept .tif and .tiff)
+tif_paths = glob.glob(os.path.join(IMAGE_DIR, "*.tif")) + glob.glob(os.path.join(IMAGE_DIR, "*.tiff"))
+IMAGE_FILES = sorted({os.path.basename(p) for p in tif_paths})
 if not IMAGE_FILES:
     # Fallback to explicit name if none found
     IMAGE_FILES = ["macro1.tif"]
