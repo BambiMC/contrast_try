@@ -841,7 +841,7 @@
 
         <div class="control mt">
           <label>Threshold <span id="v-sat">0.07</span></label>
-          <input type="range" id="sat_threshold" min="0.01" max="0.60" step="0.01" value="0.07">
+          <input type="range" id="sat_threshold" min="0.01" max="1.00" step="0.01" value="0.07">
           <div class="hint" id="sat-hint">Score above this → artwork pixel. Lower = more aggressive.</div>
         </div>
         <div class="control mt">
@@ -878,31 +878,6 @@
       <div>
         <div class="section-title">Removal Strategy</div>
         <div id="strategy-badge">A1 — LAB Neutral</div>
-
-        <!-- A2 -->
-        <div class="toggle-row" id="row-a2">
-          <label class="toggle"><input type="checkbox" id="use_a2"><span class="toggle-track"></span></label>
-          <div class="toggle-info">
-            <strong>A2 — Reference Tone</strong>
-            <div class="hint" style="margin-top:3px">Match surrounding diaper hue/warmth instead of pure grey.</div>
-          </div>
-        </div>
-
-        <!-- A3 -->
-        <div class="toggle-row mt" id="row-a3">
-          <label class="toggle"><input type="checkbox" id="use_a3"><span class="toggle-track"></span></label>
-          <div class="toggle-info">
-            <strong>A3 — Frequency Separation</strong>
-            <div class="hint" style="margin-top:3px">Replace colour layer only; texture layer kept intact.</div>
-          </div>
-        </div>
-        <div id="freq-controls" style="display:none">
-          <div class="control mt">
-            <label>Separation sigma <span id="v-freqsig">20</span></label>
-            <input type="range" id="freq_sigma" min="2" max="80" step="1" value="20">
-            <div class="hint">Blur radius for colour/texture split (full-res pixels).</div>
-          </div>
-        </div>
 
         <!-- A4 -->
         <div class="toggle-row mt" id="row-a4">
@@ -969,8 +944,8 @@
                 class="toggle-track"></span></label>
             <div class="toggle-info">
               <strong style="font-size:0.8rem">Edge feathering</strong>
-              <div class="hint" style="margin-top:2px">All island pixels are corrected uniformly; boundary pixels are
-                fully transformed.</div>
+              <div class="hint" style="margin-top:2px">Smoothly blends the mask boundary toward the adjacent original
+                pixels so the seam becomes invisible. Uses EDT distance with a cubic S-curve.</div>
             </div>
           </div>
 
@@ -978,29 +953,7 @@
             <div class="control">
               <label>Feather radius (px) <span id="v-et-er">8</span></label>
               <input type="range" id="et_edge_blend_radius" min="1" max="40" step="1" value="8">
-              <div class="hint">Distance from boundary over which the blend tapers.</div>
-            </div>
-          </div>
-
-          <div class="control">
-            <label>Min border pixels <span id="v-et-mbp">5</span></label>
-            <input type="range" id="et_min_border_px" min="5" max="200" step="5" value="5">
-            <div class="hint">Islands with fewer surrounding pixels are skipped.</div>
-          </div>
-
-          <div class="control">
-            <label>Min island pixels <span id="v-et-mip">1</span></label>
-            <input type="range" id="et_min_island_px" min="1" max="100" step="1" value="1">
-            <div class="hint">Islands smaller than this are skipped.</div>
-          </div>
-
-          <!-- Lock luminance -->
-          <div class="toggle-row">
-            <label class="toggle"><input type="checkbox" id="et_lock_luma"><span class="toggle-track"></span></label>
-            <div class="toggle-info">
-              <strong style="font-size:0.8rem">Lock luminance (L*)</strong>
-              <div class="hint" style="margin-top:2px">Only shift chrominance (a*, b*); preserve original pixel
-                lightness. Requires LAB colour space.</div>
+              <div class="hint">Width of the blend zone at the mask edge. Larger = softer transition.</div>
             </div>
           </div>
 
@@ -1026,6 +979,13 @@
             <label>Refinement passes <span id="v-et-passes">1</span></label>
             <input type="range" id="et_passes" min="1" max="5" step="1" value="1">
             <div class="hint">Run the transfer multiple times; each pass uses the previous result as input.</div>
+          </div>
+
+          <!-- Post-hoc chroma reduction -->
+          <div class="control">
+            <label>Post-hoc desaturation <span id="v-a4-chroma">0.00</span></label>
+            <input type="range" id="a4_chroma_reduction" min="0" max="1" step="0.05" value="0.0">
+            <div class="hint">Further reduce chroma in masked areas after A4. 0 = off · 1 = fully neutral grey.</div>
           </div>
 
         </div><!-- /a4-controls -->
@@ -1197,15 +1157,13 @@
       dilate_iter: { lbl: "v-dilate", dec: 0 },
       hue_center: { lbl: "v-hue-center", dec: 0 },
       hue_width: { lbl: "v-hue-width", dec: 0 },
-      freq_sigma: { lbl: "v-freqsig", dec: 0 },
       removal_strength: { lbl: "v-strength", dec: 2 },
       render_pct: { lbl: "v-render-pct", dec: 0 },
       et_border_width: { lbl: "v-et-bw", dec: 0 },
       et_blend_strength: { lbl: "v-et-bs", dec: 2 },
       et_edge_blend_radius: { lbl: "v-et-er", dec: 0 },
-      et_min_border_px: { lbl: "v-et-mbp", dec: 0 },
-      et_min_island_px: { lbl: "v-et-mip", dec: 0 },
       et_passes: { lbl: "v-et-passes", dec: 0 },
+      a4_chroma_reduction: { lbl: "v-a4-chroma", dec: 2 },
       et_clean_border_sat: { lbl: "v-et-cbs", dec: 2 },
       gamma: { lbl: "v-gamma", dec: 2 },
     };
@@ -1267,7 +1225,7 @@
       lab_chroma: "LAB C* chroma: perceptually uniform. Better at catching desaturated pastels and warm tones that HSV misses.",
       hue_range: "Hue range: select only pixels near a specific hue. Use when you know the artwork colours. Saturation threshold still applies.",
       combined: "Combined (union): pixel is selected if either HSV-sat OR LAB-chroma exceeds the threshold. Catches more at the cost of slightly more false-positives.",
-      delta_e: "ΔE Grey: detects gray/achromatic artwork by measuring perceptual colour distance (CIE76 ΔE) from the auto-sampled substrate background. Threshold is ΔE ÷ 50 — try 0.10 (ΔE≈5) to 0.30 (ΔE≈15).",
+      delta_e: "ΔE Grey: detects gray/achromatic artwork by measuring perceptual colour distance (CIE76 ΔE) from the auto-sampled substrate background. Threshold = ΔE ÷ 100 — try 0.05 (ΔE≈5) to 0.30 (ΔE≈30).",
       channel_diff: "Channel Diff: per-channel deviation from neutral grey — max(|R−m|, |G−m|, |B−m|) where m=(R+G+B)/3. More stable than HSV Sat for very bright or very dark artwork. Use same 0.05–0.07 threshold range.",
     };
     document.getElementById("mask-mode-group").addEventListener("change", () => {
@@ -1294,40 +1252,17 @@
     // ============================================================
     // Strategy toggles & A4 control visibility
     // ============================================================
-    const BADGE_LABELS = {
-      "00": "A1 — LAB Neutral",
-      "10": "A2 — Reference Tone",
-      "01": "A1+A3 — Freq Sep + LAB",
-      "11": "A2+A3 — Freq Sep + Ref Tone ★",
-    };
-
     function updateStrategy() {
-      const a2 = document.getElementById("use_a2").checked;
-      const a3 = document.getElementById("use_a3").checked;
       const a4 = document.getElementById("use_a4").checked;
-
       document.getElementById("strategy-badge").textContent =
-        a4 ? "A4 — Edge Transfer (overrides A1–A3)"
-          : (BADGE_LABELS[`${+a2}${+a3}`] ?? "A1");
-
-      // A4 dims A1–A3 controls, shows its own panel
-      document.getElementById("row-a2").classList.toggle("dimmed", a4);
-      document.getElementById("row-a3").classList.toggle("dimmed", a4);
-      document.getElementById("freq-controls").style.display = (!a4 && a3) ? "block" : "none";
+        a4 ? "A4 — Edge Transfer" : "A1 — LAB Neutral";
       document.getElementById("a4-controls").style.display = a4 ? "flex" : "none";
       if (a4) document.getElementById("a4-controls").style.flexDirection = "column";
       document.getElementById("a4-controls").style.gap = "10px";
-
-      // Chroma strength is only meaningful for A1–A3
       document.getElementById("chroma-strength-row").style.display = a4 ? "none" : "block";
     }
 
-    ["use_a2", "use_a3", "use_a4"].forEach(id =>
-      document.getElementById(id).addEventListener("change", updateStrategy));
-
-    // Ensure A2–A4 toggles start turned off by default
-    document.getElementById("use_a2").checked = false;
-    document.getElementById("use_a3").checked = false;
+    document.getElementById("use_a4").addEventListener("change", updateStrategy);
     // Default to A4 selected per user request
     document.getElementById("use_a4").checked = true;
     updateStrategy();
@@ -1539,14 +1474,11 @@
         const el = document.getElementById(id); if (!el) continue;
         p[id] = dec === 0 ? parseInt(el.value) : parseFloat(el.value);
       }
-      p.use_a2 = document.getElementById("use_a2").checked;
-      p.use_a3 = document.getElementById("use_a3").checked;
       p.use_a4 = document.getElementById("use_a4").checked;
       p.et_transform_mode = etModeGroup.getValue();
       p.et_colorspace = etCsGroup.getValue();
       p.et_a4_mode = etA4ModeGroup.getValue();
       p.et_edge_blend = document.getElementById("et_edge_blend").checked;
-      p.et_lock_luma = document.getElementById("et_lock_luma").checked;
       p.et_clean_border = document.getElementById("et_clean_border").checked;
       p.mask_mode = maskModeGroup.getValue();
       p.filters = filters.map(f => ({
@@ -1574,6 +1506,9 @@
         img.addEventListener("load", () => { img.dataset.nw = img.naturalWidth; img.dataset.nh = img.naturalHeight; applyZoom(); });
         panel.appendChild(img);
       }
+      // Clear stale dimensions so applyZoom won't use old aspect ratio before new image loads
+      img.dataset.nw = '';
+      img.dataset.nh = '';
       img.src = "data:image/png;base64," + b64;
       if (withChannels) { await buildChannels(panelId, b64); showChannel(panelId, currentChannel); }
     }

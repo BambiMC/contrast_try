@@ -340,6 +340,26 @@ def _remove_freq_separation(arr, mask, sigma, use_a2, ref_rgb, strength):
     return np.clip(new_low + high, 0, 255).astype(np.uint8)
 
 
+# -- A4 edge feather ----------------------------------------------------------
+
+def _apply_edge_feather(arr_orig, result, mask, feather_radius):
+    """Eliminate seam at mask boundary via smoothstep blend toward nearest original pixel."""
+    if feather_radius <= 0 or not mask.any():
+        return result
+    dist, idx = distance_transform_edt(mask, return_indices=True)
+    feather_zone = mask & (dist <= feather_radius)
+    if not feather_zone.any():
+        return result
+    ry, cx = idx[0][feather_zone], idx[1][feather_zone]
+    border_color = arr_orig[ry, cx].astype(np.float32)
+    transferred  = result[feather_zone].astype(np.float32)
+    t = np.clip((dist[feather_zone] - 1.0) / max(feather_radius - 1, 1), 0.0, 1.0)
+    w = (t * t * (3.0 - 2.0 * t))[:, np.newaxis]
+    out = result.copy().astype(np.float32)
+    out[feather_zone] = (1.0 - w) * border_color + w * transferred
+    return np.clip(out, 0, 255).astype(np.uint8)
+
+
 # -- A4 helpers ---------------------------------------------------------------
 
 def _px_to_lab(px):
@@ -365,12 +385,13 @@ def _remove_edge_transfer(arr, mask, params, pixel_scale=1.0):
     transform_mode   = params.get("et_transform_mode",  "covariance")
     colorspace       = params.get("et_colorspace",       "lab")
     blend_strength   = float(params.get("et_blend_strength",  1.0))
-    min_border_px    = int(params.get("et_min_border_px",  20))
-    min_island_px    = int(params.get("et_min_island_px",   5))
+    min_border_px    = int(params.get("et_min_border_px",   5))
+    min_island_px    = int(params.get("et_min_island_px",   1))
     n_passes         = max(1, int(params.get("et_passes",   1)))
-    lock_luma        = bool(params.get("et_lock_luma",     False))
     clean_border     = bool(params.get("et_clean_border",  False))
     clean_border_sat = float(params.get("et_clean_border_sat", 0.15))
+    do_feather       = bool(params.get("et_edge_blend",    True))
+    feather_radius   = max(1, round(float(params.get("et_edge_blend_radius", 8)) * pixel_scale))
 
     labeled, n_islands = label(mask)
     current = arr.copy().astype(np.float32)
@@ -417,8 +438,6 @@ def _remove_edge_transfer(arr, mask, params, pixel_scale=1.0):
                     transformed = (island_cs - mu_src) @ A.T + mu_ref
                 else:
                     transformed = island_cs - mu_src + mu_ref
-            if lock_luma and colorspace == "lab":
-                transformed[:, 0] = island_cs[:, 0]
             if colorspace == "lab":
                 transformed = _px_from_lab(np.clip(transformed, [-16, -128, -128], [100, 127, 127]))
             transformed = np.clip(transformed, 0, 255)
@@ -429,7 +448,10 @@ def _remove_edge_transfer(arr, mask, params, pixel_scale=1.0):
                 )
         current = pass_result
 
-    return np.clip(current, 0, 255).astype(np.uint8)
+    result = np.clip(current, 0, 255).astype(np.uint8)
+    if do_feather:
+        result = _apply_edge_feather(arr, result, mask, feather_radius)
+    return result
 
 
 # -- A4 radiant ---------------------------------------------------------------
@@ -482,7 +504,11 @@ def _remove_a4_radiant(arr, mask, params, pixel_scale=1.0):
         orig = arr.astype(np.float32)
         result[valid] = (1 - blend) * orig[valid] + blend * result[valid]
 
-    return np.clip(result, 0, 255).astype(np.uint8)
+    out = np.clip(result, 0, 255).astype(np.uint8)
+    if bool(params.get("et_edge_blend", True)):
+        radius = max(1, round(float(params.get("et_edge_blend_radius", 8)) * pixel_scale))
+        out = _apply_edge_feather(arr, out, mask, radius)
+    return out
 
 
 # -- A4 propagate -------------------------------------------------------------
@@ -513,7 +539,11 @@ def _remove_a4_propagate(arr, mask, params, pixel_scale=1.0):
             result[frontier, c] = filled
         known |= frontier
 
-    return np.clip(result, 0, 255).astype(np.uint8)
+    out = np.clip(result, 0, 255).astype(np.uint8)
+    if bool(params.get("et_edge_blend", True)):
+        radius = max(1, round(float(params.get("et_edge_blend_radius", 8)) * pixel_scale))
+        out = _apply_edge_feather(arr, out, mask, radius)
+    return out
 
 
 # -- Filters ------------------------------------------------------------------

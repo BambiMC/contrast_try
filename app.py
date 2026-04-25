@@ -202,7 +202,7 @@ def build_mask(arr: np.ndarray, params: dict) -> np.ndarray:
         bg_a = float(np.median(a_arr.ravel()[idx]))
         bg_b = float(np.median(b_arr.ravel()[idx]))
         delta_e = np.sqrt((L_arr - bg_L) ** 2 + (a_arr - bg_a) ** 2 + (b_arr - bg_b) ** 2)
-        score = delta_e / 50.0  # normalise: ΔE 5 → 0.10, ΔE 15 → 0.30
+        score = delta_e / 100.0  # normalise: ΔE 10 → 0.10, ΔE 30 → 0.30, ΔE 60 → 0.60
     elif mask_mode == "channel_diff":
         # Per-channel deviation from neutral grey (mean of channels).
         # More stable than HSV sat for very bright/dark pixels.
@@ -327,29 +327,63 @@ def _mat_inv_sqrt(M: np.ndarray) -> np.ndarray:
     return vecs @ np.diag(1.0 / np.sqrt(np.maximum(vals, 1e-10))) @ vecs.T
 
 
+def _apply_edge_feather(arr_orig: np.ndarray, result: np.ndarray,
+                        mask: np.ndarray, feather_radius: int) -> np.ndarray:
+    """
+    Eliminate the visible seam at the mask boundary.
+
+    For each masked pixel at EDT distance d from the non-masked region:
+      - d in [1, feather_radius]: blend (smoothstep) between the nearest
+        original non-masked pixel colour and the transferred result.
+      - d > feather_radius: keep the transferred result unchanged.
+
+    The nearest-pixel lookup is O(n) via scipy EDT with return_indices=True.
+    """
+    if feather_radius <= 0 or not mask.any():
+        return result
+
+    dist, idx = distance_transform_edt(mask, return_indices=True)
+    feather_zone = mask & (dist <= feather_radius)
+    if not feather_zone.any():
+        return result
+
+    # Colour of the nearest non-masked pixel for every pixel in the feather zone
+    ry, cx = idx[0][feather_zone], idx[1][feather_zone]
+    border_color = arr_orig[ry, cx].astype(np.float32)     # shape (N, 3)
+    transferred  = result[feather_zone].astype(np.float32)  # shape (N, 3)
+
+    # Smoothstep weight: 0 at dist=1 (matches border exactly) → 1 at dist=feather_radius
+    t = np.clip((dist[feather_zone] - 1.0) / max(feather_radius - 1, 1), 0.0, 1.0)
+    w = (t * t * (3.0 - 2.0 * t))[:, np.newaxis]  # cubic S-curve, shape (N, 1)
+
+    out = result.copy().astype(np.float32)
+    out[feather_zone] = (1.0 - w) * border_color + w * transferred
+    return np.clip(out, 0, 255).astype(np.uint8)
+
+
 def remove_edge_transfer(arr: np.ndarray, mask: np.ndarray,
                          params: dict, pixel_scale: float = 1.0) -> np.ndarray:
     """
     For each connected island in the mask:
       1. Sample border pixels (within border_width px outside the island).
-         Optionally exclude saturated border pixels (clean_border) to avoid
-         sampling adjacent artwork as reference.
+         Optionally exclude saturated border pixels (clean_border).
       2. Build a colour-distribution model of those border pixels.
-      3. Map the island pixels so their distribution matches the border's.
+      3. Map island pixels so their distribution matches the border's.
          transform_mode: 'mean' | 'mean_std' | 'covariance' (Monge-Kantorovich OT)
-      4. Optionally lock L* (lock_luma) so only a*/b* are changed.
-      5. Repeat for n_passes refinement iterations.
+      4. Repeat for n_passes refinement iterations.
+      5. Optionally feather the mask boundary to hide the seam.
     """
     border_width     = max(1, round(float(params.get("et_border_width",   10)) * pixel_scale))
-    transform_mode   = params.get("et_transform_mode",  "mean_std")
+    transform_mode   = params.get("et_transform_mode",  "covariance")
     colorspace       = params.get("et_colorspace",       "lab")
     blend_strength   = float(params.get("et_blend_strength",  1.0))
-    min_border_px    = int(params.get("et_min_border_px",  20))
-    min_island_px    = int(params.get("et_min_island_px",   5))
-    n_passes         = max(1, int(params.get("et_passes",         1)))
-    lock_luma        = bool(params.get("et_lock_luma",        False))
-    clean_border     = bool(params.get("et_clean_border",     False))
+    min_border_px    = int(params.get("et_min_border_px",   5))
+    min_island_px    = int(params.get("et_min_island_px",   1))
+    n_passes         = max(1, int(params.get("et_passes",   1)))
+    clean_border     = bool(params.get("et_clean_border",   False))
     clean_border_sat = float(params.get("et_clean_border_sat", 0.15))
+    do_feather       = bool(params.get("et_edge_blend",     True))
+    feather_radius   = max(1, round(float(params.get("et_edge_blend_radius", 8)) * pixel_scale))
 
     labeled, n_islands = label(mask)
     current = arr.copy().astype(np.float32)
@@ -363,24 +397,21 @@ def remove_edge_transfer(arr: np.ndarray, mask: np.ndarray,
             if n_island < min_island_px:
                 continue
 
-            # Border = dilated island minus the entire mask
             dilated     = binary_dilation(island_mask, iterations=border_width)
             border_mask = dilated & ~mask
             n_border    = int(border_mask.sum())
             if n_border < min_border_px:
                 continue
 
-            border_px = arr[border_mask].astype(np.float32)   # always from original
-            island_px = current[island_mask].astype(np.float32)  # from current pass
+            border_px = arr[border_mask].astype(np.float32)
+            island_px = current[island_mask].astype(np.float32)
 
-            # Exclude saturated pixels from the border reference
             if clean_border:
                 _, b_sat, _ = rgb_to_hsv(border_px)
                 keep = b_sat < clean_border_sat
                 if keep.sum() >= min_border_px:
                     border_px = border_px[keep]
 
-            # Convert to working colour space
             if colorspace == "lab":
                 border_cs = _px_to_lab(border_px)
                 island_cs = _px_to_lab(island_px)
@@ -393,12 +424,10 @@ def remove_edge_transfer(arr: np.ndarray, mask: np.ndarray,
 
             if transform_mode == "mean":
                 transformed = island_cs - mu_src + mu_ref
-
             elif transform_mode == "mean_std":
                 std_ref = border_cs.std(axis=0) + 1e-6
                 std_src = island_cs.std(axis=0) + 1e-6
                 transformed = (island_cs - mu_src) / std_src * std_ref + mu_ref
-
             else:  # covariance — Monge-Kantorovich optimal transport
                 n_b = len(border_px)
                 if n_b >= 4 and n_island >= 4:
@@ -409,11 +438,6 @@ def remove_edge_transfer(arr: np.ndarray, mask: np.ndarray,
                 else:
                     transformed = island_cs - mu_src + mu_ref
 
-            # Optionally lock L* — only shift chrominance (a*, b*)
-            if lock_luma and colorspace == "lab":
-                transformed[:, 0] = island_cs[:, 0]
-
-            # Back to RGB [0-255] float
             if colorspace == "lab":
                 transformed = _px_from_lab(np.clip(transformed,
                                                     [-16, -128, -128], [100, 127, 127]))
@@ -427,7 +451,10 @@ def remove_edge_transfer(arr: np.ndarray, mask: np.ndarray,
 
         current = pass_result
 
-    return np.clip(current, 0, 255).astype(np.uint8)
+    result = np.clip(current, 0, 255).astype(np.uint8)
+    if do_feather:
+        result = _apply_edge_feather(arr, result, mask, feather_radius)
+    return result
 
 
 def remove_a4_radiant(arr: np.ndarray, mask: np.ndarray,
@@ -492,7 +519,11 @@ def remove_a4_radiant(arr: np.ndarray, mask: np.ndarray,
         orig = arr.astype(np.float32)
         result[valid] = (1 - blend) * orig[valid] + blend * result[valid]
 
-    return np.clip(result, 0, 255).astype(np.uint8)
+    out = np.clip(result, 0, 255).astype(np.uint8)
+    if bool(params.get("et_edge_blend", True)):
+        radius = max(1, round(float(params.get("et_edge_blend_radius", 8)) * pixel_scale))
+        out = _apply_edge_feather(arr, out, mask, radius)
+    return out
 
 
 def remove_a4_propagate(arr: np.ndarray, mask: np.ndarray,
@@ -531,7 +562,11 @@ def remove_a4_propagate(arr: np.ndarray, mask: np.ndarray,
 
         known |= frontier
 
-    return np.clip(result, 0, 255).astype(np.uint8)
+    out = np.clip(result, 0, 255).astype(np.uint8)
+    if bool(params.get("et_edge_blend", True)):
+        radius = max(1, round(float(params.get("et_edge_blend_radius", 8)) * pixel_scale))
+        out = _apply_edge_feather(arr, out, mask, radius)
+    return out
 
 
 def hex_to_rgb(hex_color: str) -> np.ndarray:
@@ -580,12 +615,9 @@ def apply_filters(arr: np.ndarray, mask: np.ndarray, filters: list) -> np.ndarra
 
 def apply_strategy(arr: np.ndarray, mask: np.ndarray, params: dict,
                    pixel_scale: float = 1.0) -> np.ndarray:
-    use_a2    = bool(params.get("use_a2", False))
-    use_a3    = bool(params.get("use_a3", False))
     use_a4    = bool(params.get("use_a4", False))
     a4_mode   = params.get("et_a4_mode", "edge_transfer")
     strength  = float(params.get("removal_strength", 1.0))
-    sigma     = float(params.get("freq_sigma", 20.0)) * pixel_scale
     filters   = params.get("filters", [])
 
     if use_a4:
@@ -595,12 +627,9 @@ def apply_strategy(arr: np.ndarray, mask: np.ndarray, params: dict,
             result = remove_a4_propagate(arr, mask, params, pixel_scale)
         else:
             result = remove_edge_transfer(arr, mask, params, pixel_scale)
-    elif use_a3:
-        ref_rgb = sample_reference_tone(arr, mask) if use_a2 else None
-        result  = remove_freq_separation(arr, mask, sigma, use_a2, ref_rgb, strength)
-    elif use_a2:
-        ref_rgb = sample_reference_tone(arr, mask)
-        result  = remove_reference_tone(arr, mask, ref_rgb, strength)
+        chroma_reduction = float(params.get("a4_chroma_reduction", 0.0))
+        if chroma_reduction > 0:
+            result = remove_lab_neutral(result, mask, chroma_reduction)
     else:
         result = remove_lab_neutral(arr, mask, strength)
 
@@ -645,10 +674,11 @@ def preview():
     # Load selected image at requested render size instead of using the global _orig_pil
     render_pct = max(0.05, min(1.0, float(params.get("render_pct", 100)) / 100.0))
 
-    tw = max(1, int(W * render_pct))
-    th = max(1, int(H * render_pct))
     # Open image fresh for the preview (keeps memory/state simple when switching images)
     with Image.open(image_path) as pil_img:
+        ow, oh = pil_img.size
+        tw = max(1, int(ow * render_pct))
+        th = max(1, int(oh * render_pct))
         arr = np.array(pil_img.convert("RGB").resize((tw, th), Image.LANCZOS), dtype=np.uint8)
 
     mask   = build_mask(arr, params)
